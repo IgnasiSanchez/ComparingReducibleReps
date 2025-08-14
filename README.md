@@ -1,5 +1,5 @@
 # Comparing Reducible Representations with mod p image a p-group
-
+## Authors: Freitas, Nuno; Sánchez-Rodríguez, Ignasi.
 Our Paper: _this will be in Arxiv soon_
 
 # Prerequisites
