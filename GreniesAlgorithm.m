@@ -55,6 +55,15 @@ function MinimalGeneratingSet(G)
 	SG := SmallGroup(d,idx);
 	_,phi := IsIsomorphic(SG,G);
 
+	v1,v2,v3 := GetVersion();
+	if v1 ge 2 and v2 ge 28 and v3 ge 5 then
+		// Magma 2.28-5 or later
+		idx := SmallestGeneratingSet(SG);
+		return [phi(g) : g in idx];
+	end if; 
+
+	// If Magma version is earlier than 2.28-5 we need to call Gap to do the minimal generating set computations.
+
 	s := Pipe("gap -q", Sprintf("G := SmallGroup(%o,%o); GeneratorsOfGroup(G); MinimalGeneratingSet(G);", d, idx));
 	System("printf \"\\e[0m\""); // console colors are weird after calling gap...
 
