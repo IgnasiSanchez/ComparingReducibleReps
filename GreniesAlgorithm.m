@@ -533,7 +533,7 @@ end function;
 /*
  *  Grenié's example as in his paper and ours.
  */
-procedure GreniesExample(~middleExtensions)
+procedure ExampleOfGrenie(~middleExtensions)
 	q := 2;
 	K := Rationals();
 	S := [2];
@@ -591,7 +591,7 @@ end procedure;
 /*
  * The 3-adic example explained in our paper.
  */
-procedure mod3Example(~middleExtensions)
+procedure Example3Adic(~middleExtensions)
 	q := 3;
 	PolyQ<x> := PolynomialRing(Rationals());
 	K<a> := NumberField(x^2 - x + 1);
@@ -638,6 +638,6 @@ end procedure;
 // Gal group of last layer of 3-adic example is [54, 5] https://people.maths.bris.ac.uk/~matyd/GroupNames/1/C3%5E2sC6.html
 
 middleExtensions := [];
-//GreniesExample(~middleExtensions);
-//mod3Example(~middleExtensions);
+//ExampleOfGrenie(~middleExtensions);
+//Example3Adic(~middleExtensions);
 
