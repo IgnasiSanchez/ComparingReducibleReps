@@ -3,7 +3,7 @@
  */
 
 SetClassGroupBounds("GRH");
-load("GaloisAutomorphismGroup.m");
+load "GaloisAutomorphismGroup.m";
 AttachSpec("spec"); // Necessary: https://github.com/edgarcosta/MagmaPolred
 SetNthreads(4);
 
@@ -113,6 +113,8 @@ end function;
 function computeGModuleStructure(G, phi, p, KpS, toKpS)
 	
 	gensG := [ phi(g) : g in MinimalGeneratingSet(G) ];
+	Gp := sub<G|gensG>;
+	assert Order(Gp) eq Order(G);
 	FF := GF(p);
 	//mats := [ Matrix(FF, [ Eltseq(toKpS(g((KpS.m)@@toKpS))) : m in [1..Ngens(KpS)] ]) : g in gensG ];
 	mats := [];
@@ -127,7 +129,7 @@ function computeGModuleStructure(G, phi, p, KpS, toKpS)
 		end for;
 		Append(~mats, Matrix(FF, mat));
 	end for;
-	M := GModule(G, mats);
+	M := GModule(Gp, mats);
 	S := Submodules(M);
 	L := SubmoduleLattice(M);
 
