@@ -56,11 +56,15 @@ function MinimalGeneratingSet(G)
 	_,phi := IsIsomorphic(SG,G);
 
 	v1,v2,v3 := GetVersion();
-	if v1 ge 2 and v2 ge 28 and v3 ge 5 then
-		// Magma 2.28-5 or later
-		idx := SmallestGeneratingSet(SG);
-		return [phi(g) : g in idx];
-	end if; 
+	// if v1 ge 2 and v2 ge 28 and v3 ge 5 then
+	// 	// Magma 2.28-5 or later
+	// 	// try
+	// 	// 	idx := SmallestGeneratingSet(SG);
+	// 	// 	return [phi(g) : g in idx];
+	// 	// catch e
+	// 	// 	print "Magma version < 2.28-5";
+	// 	// end try;
+	// end if;	
 
 	// If Magma version is earlier than 2.28-5 we need to call Gap to do the minimal generating set computations.
 
