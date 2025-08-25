@@ -111,19 +111,19 @@ end function;
  * toKpS <- map from K to KpS.
 **/
 function computeGModuleStructure(G, phi, p, KpS, toKpS)
-	
-	gensG := [ phi(g) : g in MinimalGeneratingSet(G) ];
+	// just assume magma version is >= 2.28-5 for now
+	gensG := [ phi(g) : g in SmallestGeneratingSet(G) ];
 	Gp := sub<G|gensG>;
 	assert Order(Gp) eq Order(G);
 	FF := GF(p);
 	//mats := [ Matrix(FF, [ Eltseq(toKpS(g((KpS.m)@@toKpS))) : m in [1..Ngens(KpS)] ]) : g in gensG ];
 	mats := [];
 	itoKpS := Inverse(toKpS);
+	gensOfKpSInK := [iToKpS(KpS.i) : i in [1..Ngens(KpS)]];
 	for g in gensG do
 		mat := [];
 		for m in [1..Ngens(KpS)] do
-			KpSmInK := itoKpS(KpS.m);
-			actionOfG := g(KpSmInK);
+			actionOfG := g(gensOfKpSInK[m]);
 			returnToKpS := toKpS(actionOfG);
 			Append(~mat, Eltseq(returnToKpS));
 		end for;
