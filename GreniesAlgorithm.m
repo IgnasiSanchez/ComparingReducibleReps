@@ -41,65 +41,6 @@ function OptimizedRepresentation2(K : maxiter := 10)
 	return NumberField(f);
 end function;
 
-
-/*
- * Computes the minimal generating set for a group G using Gap's MinimalGeneratingSet
-*/
-function MinimalGeneratingSet(G)
-	d := Order(G);
-	if d gt SmallGroupDatabaseLimit() and CanIdentifyGroup(G) then
-		error "Group is too large. See Magma example GrpData_IdentifyGroup (H72E4) for more information.";
-	end if;
-	tag := IdentifyGroup(G);
-	idx := tag[2];
-	SG := SmallGroup(d,idx);
-	_,phi := IsIsomorphic(SG,G);
-
-	v1,v2,v3 := GetVersion();
-	// if v1 ge 2 and v2 ge 28 and v3 ge 5 then
-	// 	// Magma 2.28-5 or later
-	// 	// try
-	// 	// 	idx := SmallestGeneratingSet(SG);
-	// 	// 	return [phi(g) : g in idx];
-	// 	// catch e
-	// 	// 	print "Magma version < 2.28-5";
-	// 	// end try;
-	// end if;	
-
-	// If Magma version is earlier than 2.28-5 we need to call Gap to do the minimal generating set computations.
-
-	s := Pipe("gap -q", Sprintf("G := SmallGroup(%o,%o); GeneratorsOfGroup(G); MinimalGeneratingSet(G);", d, idx));
-	System("printf \"\\e[0m\""); // console colors are weird after calling gap...
-
-	i0 := Index(s, "\n");
-	s := s[i0+1..#s];
-	gens := s[ Index(s, "[")+1 .. Index(s, "]")-1 ];
-	gens := [StripWhiteSpace(g) : g in Split(gens, ",")];
-	s2 := s[ Index(s, "]")+1..#s];
-	minGens := s2[ Index(s2, "[")+1 .. Index(s2, "]")-1 ];
-	minGens := [StripWhiteSpace(g) : g in Split(minGens, ",")];
-	gensSG := Generators(SG);
-	assert #gensSG eq #gens;
-
-	newMinGens := [];
-	for g in minGens do
-	    seq := Eltseq(g);
-		for i in [1..#seq] do
-			if seq[i] eq "f" then
-				seq[i] := "SG.";
-			end if;
-		end for;
-		Append(~newMinGens, &cat(seq));
-	end for;
-	
-	minGensSG := [eval g : g in newMinGens];
-
-	assert Order(sub<SG|minGensSG>) eq d;
-
-	return [phi(g) : g in minGensSG];
-
-end function;
-
 /**
  * Computes the G-Module structure of the p-Selmer group KpS.
  * 
@@ -112,14 +53,23 @@ end function;
 **/
 function computeGModuleStructure(G, phi, p, KpS, toKpS)
 	// just assume magma version is >= 2.28-5 for now
-	gensG := [ phi(g) : g in SmallestGeneratingSet(G) ];
-	Gp := sub<G|gensG>;
+	gensG := [];
+	v1,v2,v3 := GetVersion();
+	if v1 ge 2 and v2 ge 28 and v3 ge 5 then
+		gensG := eval "SmallestGeneratingSet(G);"; // Magma forces us to do this: if the function is not defined it would throw an error.
+	else
+		print "Magma version < 2.28-5. Using non-minimal generating set of G.";
+		gensG := Generators(G);
+	end if;
+	Gp, fromGpToG := sub<G|gensG>; // Change G into a group with smaller number of generators.
 	assert Order(Gp) eq Order(G);
+	
+	gensG := [ phi(g) : g in gensG ];
+	
 	FF := GF(p);
-	//mats := [ Matrix(FF, [ Eltseq(toKpS(g((KpS.m)@@toKpS))) : m in [1..Ngens(KpS)] ]) : g in gensG ];
 	mats := [];
 	iToKpS := Inverse(toKpS);
-	gensOfKpSInK := [iToKpS(KpS.i) : i in [1..Ngens(KpS)]];
+	gensOfKpSInK := [iToKpS(KpS.i) : i in [1..Ngens(KpS)]]; // precompute generators of selmer in K.
 	for g in gensG do
 		mat := [];
 		for m in [1..Ngens(KpS)] do
