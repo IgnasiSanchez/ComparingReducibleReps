@@ -118,7 +118,7 @@ function computeGModuleStructure(G, phi, p, KpS, toKpS)
 	FF := GF(p);
 	//mats := [ Matrix(FF, [ Eltseq(toKpS(g((KpS.m)@@toKpS))) : m in [1..Ngens(KpS)] ]) : g in gensG ];
 	mats := [];
-	itoKpS := Inverse(toKpS);
+	iToKpS := Inverse(toKpS);
 	gensOfKpSInK := [iToKpS(KpS.i) : i in [1..Ngens(KpS)]];
 	for g in gensG do
 		mat := [];
