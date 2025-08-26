@@ -14,7 +14,7 @@ After installing the prerequisites and cloning the project, you need to change t
 
 ` AttachSpec("PathToSpec"); `
 
-You should also set the default `parisize` as it is recommeneded in Edgar Costa's repository. 
+You should also change the default `parisize` as it is recommeneded in Edgar Costa's repository. 
 
 The examples in the paper correspond to the procedures `Example3Adic` for the 3-adic example (section 7) and `ExampleOfGrenie` for the validation of our code using Grenié's example (section 6). They are both in [GreniesAlgorithm.m](https://github.com/IgnasiSanchez/ComparingReducibleReps/blob/main/GreniesAlgorithm.m). So, for example, running the example of Grenié would look like this:
 
