@@ -56,7 +56,7 @@ function computeGModuleStructure(G, phi, p, KpS, toKpS)
 	gensG := [];
 	v1,v2,v3 := GetVersion();
 	if v1 ge 2 and v2 ge 28 and v3 ge 5 then
-		gensG := eval "SmallestGeneratingSet(G);"; // Magma forces us to do this: if the function is not defined it would throw an error.
+		gensG := eval "SmallestGeneratingSet(G)"; // Magma forces us to do this: if the function is not defined it would throw an error.
 	else
 		print "Magma version < 2.28-5. Using non-minimal generating set of G.";
 		gensG := Generators(G);
