@@ -31,4 +31,3 @@ To compute the minimal set of primes $T$ one can use `FrobeniusWithRelativeDecGr
 ---
 
 We thank John Voight and Stephan Elsenhans for the `GaloisAutomorphismGroup.m` file. This function uses the `GaloisData` from the `GaloisGroup` computations and recovers the automorphisms acting on the field. This function is much faster than using `AutomorphismGroup` in the Galois case. 
-
