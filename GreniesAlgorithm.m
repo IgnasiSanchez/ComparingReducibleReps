@@ -446,18 +446,18 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 		print "Dimension", i, "of", Ngens(KpS);
 		S := dimNSubmods(M, i);
 		if IsEmpty(goodSubmodules) then
-			dim_i_modules := [l : l in L | Dimension(l) eq i];
+			dim_i_modules := [l : l in S | Dimension(l) eq i];
 			print "There are", #dim_i_modules, "modules of dimension", i;
 		else
-			dim_i_modules := [l : l in L | Dimension(l) eq i and 
-        		&and[Module(L!mm) in goodSubmodules : mm in MaximalSubmodules(l)]];
+			dim_i_modules := [l : l in S | Dimension(l) eq i and 
+        		&and[mm in goodSubmodules : mm in MaximalSubmodules(l)]];
 			print "There are", #dim_i_modules, "modules of dimension", i, "s.t. their all their maximal submodules do not violate the residual degree condition.";
 		end if;
 
 		newGoodSubmodules := [];
 		jj := 1;
 		for l in dim_i_modules do
-			print "Checking submodule", jj, "of", #dim_i_modules, "(id", l, ")";
+			print "Checking submodule", jj, "of", #dim_i_modules;
 			flag := 0;
 			
 			for rf in blessedRFs do
@@ -465,7 +465,7 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 				print p;
 				Fp := rf[2];
 				Fpm := rf[3];
-				isSplit := checkSubmodule(K, M, Module(L!l), KpS, SelToK, q, Fp, Fpm: OK := OK);
+				isSplit := checkSubmodule(K, M, l, KpS, SelToK, q, Fp, Fpm: OK := OK);
 				if isSplit eq 0 then
 					print "    - The prime", p, "is inert.";
 					flag := 1;
@@ -475,7 +475,7 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 
 			if flag eq 0 then
 				print "  -- This submodule survives";
-				Append(~newGoodSubmodules, Module(L!l));
+				Append(~newGoodSubmodules, l);
 			end if;
 
 			jj := jj + 1;
@@ -499,7 +499,7 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 	print "Found maximal extension with dimension", maxdim;
 	maxDimSubmod := goodSubmodules[idx];
 	if maxdim ge 1 then
-		gens := getModuleGeneratorsInSelmer(M, Module(L!maxDimSubmod), KpS);
+		gens := getModuleGeneratorsInSelmer(M, maxDimSubmod, KpS);
 		print gens;
 		return AbsoluteField(NumberField([x^q - SelToK(g) : g in gens]));
 	else
@@ -650,5 +650,5 @@ end procedure;
 
 middleExtensions := [];
 //ExampleOfGrenie(~middleExtensions);
-//Example3Adic(~middleExtensions);
+Example3Adic(~middleExtensions);
 
