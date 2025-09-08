@@ -142,11 +142,8 @@ function computeGModuleStructure(G, phi, p, KpS, toKpS)
 		end for;
 		Append(~mats, Matrix(FF, mat));
 	end for;
-	M := GModule(Gp, mats);
-	S := Submodules(M);
-	//L := SubmoduleLattice(M);
 
-	return M, S; //L;
+	return GModule(Gp, mats);
 end function;
 
 
@@ -283,21 +280,18 @@ function nextStep(K, S, P, f : q := 2)
 
 	print "Computing G-Module structure of Sel_p(K,S)...";
 	t0 := Realtime();
-	M, S := computeGModuleStructure(G, m, q, KpS, KToSel);
+	M := computeGModuleStructure(G, m, q, KpS, KToSel);
 	print "Done in", Realtime(t0), "seconds.";
-	print "The Lattice contains", #S, "submodules.";
-	for i in [1..Ngens(KpS)] do
-		print "The Lattice contains", #[l : l in S | Dimension(l) eq i], "submodules of dimension", i;
-	end for;
-	print "++++";
 	print "Now we eliminate all of the submodules that do not satisfy the residual degree condition...";
 	t0 := Realtime();
 	j := 1;
 	goodSubmodules := [];
 	for i in [1..Ngens(KpS)] do
 		print "Dimension", i, "of", Ngens(KpS);
+		S := dimNSubmods(M, i);
 		if IsEmpty(goodSubmodules) then
 			dim_i_modules := [l : l in S | Dimension(l) eq i];
+			print "There are", #dim_i_modules, "modules of dimension", i;
 		else
 			dim_i_modules := [l : l in S | Dimension(l) eq i and
 			&and[mm in goodSubmodules : mm in MaximalSubmodules(l)]];
@@ -312,6 +306,7 @@ function nextStep(K, S, P, f : q := 2)
 
 			for rf in blessedRFs do
 				p := rf[1];
+				print p;
 				Fp := rf[2];
 				Fpm := rf[3];
 				isSplit := checkSubmodule(K, M, l, KpS, SelToK, q, Fp, Fpm: OK := OK);
@@ -440,13 +435,8 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 
 	print "Computing G-Module structure of Sel_p(K,S)...";
 	t0 := Realtime();
-	M, S, L := computeGModuleStructure(G, m, q, KpS, KToSel);
+	M := computeGModuleStructure(G, m, q, KpS, KToSel);
 	print "Done in", Realtime(t0), "seconds.";
-	print "The Lattice contains", #S, "submodules.";
-	for i in [1..Ngens(KpS)] do
-		print "The Lattice contains", #[l : l in L | Dimension(l) eq i], "submodules of dimension", i;
-	end for;
-	print "++++";
 
 	print "Now we eliminate all of the submodules that do not satisfy the residual degree condition...";
 	t0 := Realtime();
@@ -454,8 +444,10 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 	goodSubmodules := [];
 	for i in [1..Ngens(KpS)] do
 		print "Dimension", i, "of", Ngens(KpS);
+		S := dimNSubmods(M, i);
 		if IsEmpty(goodSubmodules) then
 			dim_i_modules := [l : l in L | Dimension(l) eq i];
+			print "There are", #dim_i_modules, "modules of dimension", i;
 		else
 			dim_i_modules := [l : l in L | Dimension(l) eq i and 
         		&and[Module(L!mm) in goodSubmodules : mm in MaximalSubmodules(l)]];
