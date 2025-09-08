@@ -41,6 +41,69 @@ function OptimizedRepresentation2(K : maxiter := 10)
 	return NumberField(f);
 end function;
 
+function dimNfromDimN1Submod(M, mats, N1submod, p)
+	Q, pi := quo<M | N1submod>;
+	validSubmodules := [];
+
+	// remove \lambda*q from list for all q in Q.
+	
+	for q in Q do
+		
+		if q eq Q!0 then
+			continue;
+		end if;
+		
+		qinM := Inverse(pi)(q);
+		
+		vecs := [Matrix(GF(p), 1, Dimension(M), Eltseq(qinM))];
+		for mat in mats do
+			matAction := vecs[1] * mat;
+			Append(~vecs, matAction);
+		end for;
+		
+		allVecs := [Eltseq(M!v) : v in Basis(N1submod)] cat [Eltseq(v) : v in vecs];
+		testMatrix := Matrix(GF(p), allVecs);
+		
+		expectedDim := Dimension(N1submod) + 1;
+		if Rank(testMatrix) eq expectedDim then
+			newSubmodule := sub<M | allVecs>;
+			
+			if Dimension(newSubmodule) eq expectedDim then
+				Append(~validSubmodules, newSubmodule);
+			end if;
+		end if;
+	end for;
+	
+	return validSubmodules;
+end function;
+
+function dimNSubmods(M, N)
+	subs := MaximalSubmodules(M);
+	while Dimension(subs[1]) gt N do
+		subs := SetToSequence(Set(Flat([MaximalSubmodules(s) : s in subs])));
+	end while;
+	return subs;
+end function;
+
+function dim1InvariantSubspaces(M, mat, p)
+	vaps := [v[1] : v in SetToSequence(Eigenvalues(mat))];
+	spaces := [Eigenspace(mat,v) : v in vaps];
+	dim1Submods := [];
+	for space in spaces do
+		b := Basis(space);
+		coefs := CartesianProduct([GF(p) : _  in [1..#b]]);
+		// reduce coeffs to projective coords
+		mods := {sub<M | &+[c[i]*b[i] : i in [1..#b]]> : c in coefs};
+		Append(~dim1Submods, [module : module in mods | Dimension(module) eq 1]);
+	end for;
+
+	return 	Set(Flat(dim1Submods));
+end function;
+
+function computeDim1Submodules(M, mats, p)
+	return &meet [dim1InvariantSubspaces(M, mat, p) : mat in mats];
+end function;
+
 /**
  * Computes the G-Module structure of the p-Selmer group KpS.
  * 
@@ -64,7 +127,7 @@ function computeGModuleStructure(G, phi, p, KpS, toKpS)
 	Gp, fromGpToG := sub<G|gensG>; // Change G into a group with smaller number of generators.
 	assert Order(Gp) eq Order(G);
 	
-	gensG := [ phi(g) : g in gensG ];
+	gensG := [ phi(fromGpToG(g)) : g in Generators(Gp) ];
 	
 	FF := GF(p);
 	mats := [];
@@ -81,9 +144,9 @@ function computeGModuleStructure(G, phi, p, KpS, toKpS)
 	end for;
 	M := GModule(Gp, mats);
 	S := Submodules(M);
-	L := SubmoduleLattice(M);
+	//L := SubmoduleLattice(M);
 
-	return M, S, L;
+	return M, S; //L;
 end function;
 
 
@@ -220,11 +283,11 @@ function nextStep(K, S, P, f : q := 2)
 
 	print "Computing G-Module structure of Sel_p(K,S)...";
 	t0 := Realtime();
-	M, S, L := computeGModuleStructure(G, m, q, KpS, KToSel);
+	M, S := computeGModuleStructure(G, m, q, KpS, KToSel);
 	print "Done in", Realtime(t0), "seconds.";
 	print "The Lattice contains", #S, "submodules.";
 	for i in [1..Ngens(KpS)] do
-		print "The Lattice contains", #[l : l in L | Dimension(l) eq i], "submodules of dimension", i;
+		print "The Lattice contains", #[l : l in S | Dimension(l) eq i], "submodules of dimension", i;
 	end for;
 	print "++++";
 	print "Now we eliminate all of the submodules that do not satisfy the residual degree condition...";
@@ -234,24 +297,24 @@ function nextStep(K, S, P, f : q := 2)
 	for i in [1..Ngens(KpS)] do
 		print "Dimension", i, "of", Ngens(KpS);
 		if IsEmpty(goodSubmodules) then
-			dim_i_modules := [l : l in L | Dimension(l) eq i];
+			dim_i_modules := [l : l in S | Dimension(l) eq i];
 		else
-			dim_i_modules := [l : l in L | Dimension(l) eq i and
-			&and[Module(L!mm) in goodSubmodules : mm in MaximalSubmodules(l)]];
+			dim_i_modules := [l : l in S | Dimension(l) eq i and
+			&and[mm in goodSubmodules : mm in MaximalSubmodules(l)]];
 			print "There are", #dim_i_modules, "modules of dimension", i, "s.t. their all their maximal submodules do not violate the residual degree condition.";
 		end if;
 	
 		newGoodSubmodules := [];
 		jj := 1;
 		for l in dim_i_modules do
-			print "Checking submodule", jj, "of", #dim_i_modules, "(id", l, ")";
+			print "Checking submodule", jj, "of", #dim_i_modules;
 			flag := 0;
 
 			for rf in blessedRFs do
 				p := rf[1];
 				Fp := rf[2];
 				Fpm := rf[3];
-				isSplit := checkSubmodule(K, M, Module(L!l), KpS, SelToK, q, Fp, Fpm: OK := OK);
+				isSplit := checkSubmodule(K, M, l, KpS, SelToK, q, Fp, Fpm: OK := OK);
 				if isSplit eq 0 then
 					print "    - The prime", p, "is inert.";
 					flag := 1;
@@ -261,7 +324,7 @@ function nextStep(K, S, P, f : q := 2)
 
 			if flag eq 0 then
 				print "  -- This submodule survives";
-				Append(~newGoodSubmodules, Module(L!l));
+				Append(~newGoodSubmodules, l);
 			end if;
 
 			jj := jj+1;
@@ -285,7 +348,7 @@ function nextStep(K, S, P, f : q := 2)
 	print "Found maximal extension with dimension", maxdim;
 	maxDimSubmod := goodSubmodules[idx];
 	if maxdim ge 1 then
-		gens := getModuleGeneratorsInSelmer(M, Module(L!maxDimSubmod), KpS);
+		gens := getModuleGeneratorsInSelmer(M, maxDimSubmod, KpS);
 		print gens;
 		return AbsoluteField(NumberField([x^q - SelToK(g) : g in gens]));
 	else
