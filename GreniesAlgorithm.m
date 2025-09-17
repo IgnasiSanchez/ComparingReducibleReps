@@ -41,6 +41,78 @@ function OptimizedRepresentation2(K : maxiter := 10)
 	return NumberField(f);
 end function;
 
+function dim1InvariantSubspaces(M, mat, p)
+	vaps := [v[1] : v in SetToSequence(Eigenvalues(mat))];
+	spaces := [Eigenspace(mat,v) : v in vaps];
+	dim1Submods := [];
+	for space in spaces do
+		b := Basis(space);
+		coefs := CartesianProduct([GF(p) : _  in [1..#b]]);
+		// reduce coeffs to projective coords
+		mods := {sub<M | &+[c[i]*b[i] : i in [1..#b]]> : c in coefs};
+		Append(~dim1Submods, [module : module in mods | Dimension(module) eq 1]);
+	end for;
+
+	return 	Set(Flat(dim1Submods));
+end function;
+
+function computeDim1Submodules(M, mats, p)
+	return &meet [dim1InvariantSubspaces(M, mat, p) : mat in mats];
+end function;
+
+
+function OrbitByEndomorphisms(gens, q : IncludeInverses := true, Max := 10^9)
+
+    F := BaseRing(gens[1]);
+    n := Nrows(gens[1]);
+
+    V  := RSpace(F, n);
+    v0 := V!Eltseq(q);
+
+    S := gens;
+    if IncludeInverses then
+        for g in gens do
+            bool, gin := IsInvertible(g);
+            if bool then
+                Append(~S, gin);
+            end if;
+        end for;
+    end if;
+
+    // BFS over the orbit
+    seen  := {@ v0 @};
+    queue := [ v0 ];
+    i := 1;
+    while i le #queue and #seen lt Max do
+        w := queue[i];  i +:= 1;
+        for g in S do
+            u := w * g;                 // <-- row action
+            if not u in seen then
+                Include(~seen, u);
+                Append(~queue, u);
+                if #seen ge Max then break; end if;
+            end if;
+        end for;
+    end while;
+
+    return queue;
+end function;
+
+function dimNfromDimN1Submod_2(M, mats, N1submod, p)
+	Q, pi := quo<M | N1submod>;
+	
+	matsInQ := ActionGenerators(Q);
+	subs := computeDim1Submodules(Q, matsInQ, p);
+	subsOfM := [];
+	for s in subs do
+		q := Basis(s);
+		q := Inverse(pi)(q[1]);
+		Append(~subsOfM, sub<M| [M!b : b in Basis(N1submod)] cat [M!q]>);
+	end for;
+
+	return subsOfM;
+end function;
+
 function dimNfromDimN1Submod(M, mats, N1submod, p)
 	Q, pi := quo<M | N1submod>;
 	validSubmodules := [];
@@ -85,24 +157,6 @@ function dimNSubmods(M, N)
 	return subs;
 end function;
 
-function dim1InvariantSubspaces(M, mat, p)
-	vaps := [v[1] : v in SetToSequence(Eigenvalues(mat))];
-	spaces := [Eigenspace(mat,v) : v in vaps];
-	dim1Submods := [];
-	for space in spaces do
-		b := Basis(space);
-		coefs := CartesianProduct([GF(p) : _  in [1..#b]]);
-		// reduce coeffs to projective coords
-		mods := {sub<M | &+[c[i]*b[i] : i in [1..#b]]> : c in coefs};
-		Append(~dim1Submods, [module : module in mods | Dimension(module) eq 1]);
-	end for;
-
-	return 	Set(Flat(dim1Submods));
-end function;
-
-function computeDim1Submodules(M, mats, p)
-	return &meet [dim1InvariantSubspaces(M, mat, p) : mat in mats];
-end function;
 
 /**
  * Computes the G-Module structure of the p-Selmer group KpS.
@@ -143,7 +197,7 @@ function computeGModuleStructure(G, phi, p, KpS, toKpS)
 		Append(~mats, Matrix(FF, mat));
 	end for;
 
-	return GModule(Gp, mats);
+	return GModule(Gp, mats), mats;
 end function;
 
 
