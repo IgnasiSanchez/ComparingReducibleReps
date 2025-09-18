@@ -10,21 +10,19 @@ In Magma's v2.28-5 version the function [SmallestGeneratingSet](http://magma.mat
 
 
 # How to run
-After installing the prerequisites and cloning the project, you need to change the spec path for Edgar Costa's code in the file `GreniesAlgorithm.m`. 
+After installing the prerequisites and cloning the project, you need to change the spec path for Edgar Costa's code in the file `TowerFieldAlgorithm.m`. 
 
 ` AttachSpec("PathToSpec"); `
 
 You should also change the default `parisize` as it is recommeneded in Edgar Costa's repository. 
 
-The examples in the paper correspond to the procedures `Example3Adic` for the 3-adic example (section 7) and `ExampleOfGrenie` for the validation of our code using Grenié's example (section 6). They are both in [GreniesAlgorithm.m](https://github.com/IgnasiSanchez/ComparingReducibleReps/blob/main/GreniesAlgorithm.m). So, for example, running the example of Grenié would look like this:
+The examples in the paper correspond to the files `Example3Adic.m` for the 3-adic example (section 7) and `ExampleOfGrenie.m` for the validation of our code using Grenié's example (section 6). So, for example, running the example of Grenié would look like this:
 
 ```
-load "GreniesAlgorithm.m";
-middleExtensions := [];
-ExampleOfGrenie(~middleExtensions);
+load "ExampleOfGrenie.m";
 ```
 
-This fills the list `middleExtensions` with the tower $K_0 \subseteq K_1\subseteq \dots K_S$ for this example. 
+This fills the sequence `middleExtensions` with the tower $K_0 \subseteq K_1\subseteq \dots K_S$ for this example. 
 
 To compute the minimal set of primes $T$ one can use `FrobeniusWithRelativeDecGrp.m` for the 3-adic example. Our code for the primes in Grenié's example is not uploaded yet, but it is the same as in the 3-adic example, using Magma's `FrobeniusElement` instead of computing the Decomposition Groups. 
 

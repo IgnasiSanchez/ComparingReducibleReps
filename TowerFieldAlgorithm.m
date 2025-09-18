@@ -7,6 +7,18 @@ load "GaloisAutomorphismGroup.m";
 AttachSpec("spec"); // Necessary: https://github.com/edgarcosta/MagmaPolred
 SetNthreads(4);
 
+/**
+ * Computes the first n prime numbers.
+ * 
+ * Parameters:
+ * n <- positive integer, the number of primes to compute
+ * 
+ * Returns:
+ * A sequence containing the first n prime numbers starting with 2.
+ * 
+ * Example:
+ * NFirstPrimes(5) returns [2, 3, 5, 7, 11]
+**/
 function NFirstPrimes(n)
 	primes := [2];
 	for i in [2 .. n] do
@@ -17,6 +29,20 @@ end function;
 
 /*
  * Computes optimized representation using pari/gp polredbest iterating it maxiter times if deg > 8
+ * 
+ * Parameters:
+ * K <- Number field to optimize
+ * 
+ * Optional Parameters:
+ * maxiter <- Maximum number of iterations for polynomial reduction (default: 10)
+ * 
+ * Returns:
+ * An optimized number field with a reduced discriminant polynomial.
+ * The function uses Polred to find a polynomial with smaller discriminant.
+ * For polynomials of degree > 8, it iterates the reduction process up to maxiter times.
+ * 
+ * Note: 
+ * Prints the percentage reduction in discriminant achieved.
 */
 function OptimizedRepresentation2(K : maxiter := 10)
 	f := DefiningPolynomial(K);
@@ -41,6 +67,18 @@ function OptimizedRepresentation2(K : maxiter := 10)
 	return NumberField(f);
 end function;
 
+/**
+ * Computes all 1-dimensional invariant subspaces of a module M under the action of a matrix.
+ * 
+ * Parameters:
+ * M <- G-module 
+ * mat <- matrix representing the action of a group element
+ * p <- prime characteristic
+ * 
+ * Returns:
+ * A set of all 1-dimensional submodules of M that are invariant under the action of mat.
+ * The function finds eigenspaces and extracts 1-dimensional submodules from them.
+**/
 function dim1InvariantSubspaces(M, mat, p)
 	vaps := [v[1] : v in SetToSequence(Eigenvalues(mat))];
 	spaces := [Eigenspace(mat,v) : v in vaps];
@@ -56,49 +94,38 @@ function dim1InvariantSubspaces(M, mat, p)
 	return 	Set(Flat(dim1Submods));
 end function;
 
+/**
+ * Computes all 1-dimensional submodules that are invariant under all matrices in mats.
+ * 
+ * Parameters:
+ * M <- G-module
+ * mats <- sequence of matrices representing group actions
+ * p <- prime characteristic
+ * 
+ * Returns:
+ * The intersection of all 1-dimensional invariant subspaces for each matrix in mats.
+ * This gives the 1-dimensional submodules that are invariant under the entire group action.
+**/
 function computeDim1Submodules(M, mats, p)
 	return &meet [dim1InvariantSubspaces(M, mat, p) : mat in mats];
 end function;
 
 
-function OrbitByEndomorphisms(gens, q : IncludeInverses := true, Max := 10^9)
-
-    F := BaseRing(gens[1]);
-    n := Nrows(gens[1]);
-
-    V  := RSpace(F, n);
-    v0 := V!Eltseq(q);
-
-    S := gens;
-    if IncludeInverses then
-        for g in gens do
-            bool, gin := IsInvertible(g);
-            if bool then
-                Append(~S, gin);
-            end if;
-        end for;
-    end if;
-
-    // BFS over the orbit
-    seen  := {@ v0 @};
-    queue := [ v0 ];
-    i := 1;
-    while i le #queue and #seen lt Max do
-        w := queue[i];  i +:= 1;
-        for g in S do
-            u := w * g;                 // <-- row action
-            if not u in seen then
-                Include(~seen, u);
-                Append(~queue, u);
-                if #seen ge Max then break; end if;
-            end if;
-        end for;
-    end while;
-
-    return queue;
-end function;
-
-function dimNfromDimN1Submod_2(M, mats, N1submod, p)
+/**
+ * Constructs n-dimensional submodules from (n-1)-dimensional submodules.
+ * 
+ * Parameters:
+ * M <- G-module
+ * mats <- sequence of matrices representing group actions
+ * N1submod <- (n-1)-dimensional submodule
+ * p <- prime characteristic
+ * 
+ * Returns:
+ * A sequence of n-dimensional submodules of M that contain N1submod.
+ * The function works by taking the quotient M/N1submod, finding 1-dimensional
+ * submodules in the quotient, and lifting them back to M.
+**/
+function dimNfromDimN1Submod(M, mats, N1submod, p)
 	Q, pi := quo<M | N1submod>;
 	
 	matsInQ := ActionGenerators(Q);
@@ -113,42 +140,19 @@ function dimNfromDimN1Submod_2(M, mats, N1submod, p)
 	return subsOfM;
 end function;
 
-function dimNfromDimN1Submod(M, mats, N1submod, p)
-	Q, pi := quo<M | N1submod>;
-	validSubmodules := [];
 
-	// remove \lambda*q from list for all q in Q.
-	
-	for q in Q do
-		
-		if q eq Q!0 then
-			continue;
-		end if;
-		
-		qinM := Inverse(pi)(q);
-		
-		vecs := [Matrix(GF(p), 1, Dimension(M), Eltseq(qinM))];
-		for mat in mats do
-			matAction := vecs[1] * mat;
-			Append(~vecs, matAction);
-		end for;
-		
-		allVecs := [Eltseq(M!v) : v in Basis(N1submod)] cat [Eltseq(v) : v in vecs];
-		testMatrix := Matrix(GF(p), allVecs);
-		
-		expectedDim := Dimension(N1submod) + 1;
-		if Rank(testMatrix) eq expectedDim then
-			newSubmodule := sub<M | allVecs>;
-			
-			if Dimension(newSubmodule) eq expectedDim then
-				Append(~validSubmodules, newSubmodule);
-			end if;
-		end if;
-	end for;
-	
-	return validSubmodules;
-end function;
-
+/**
+ * Computes all submodules of dimension N by iteratively finding maximal submodules.
+ * 
+ * Parameters:
+ * M <- G-module
+ * N <- target dimension
+ * 
+ * Returns:
+ * A sequence of all submodules of M having dimension exactly N.
+ * The function starts with maximal submodules and recursively computes
+ * their maximal submodules until reaching the desired dimension.
+**/
 function dimNSubmods(M, N)
 	subs := MaximalSubmodules(M);
 	while Dimension(subs[1]) gt N do
@@ -216,23 +220,29 @@ function getModuleGeneratorsInSelmer(M, N, KpS)
 end function;
 
 /**
- * Checks the Goodness of Submodule. That is, given a submodule S,
- * let Oe be the set of generators from the function above 
- * and a prime p in K, it checks whether p is split or inert in K(Oe).
- * It returns 0 if the prime is inert and 1 if the prime is split.
+ * Checks the "goodness" of a submodule by testing residual degree conditions.
+ * 
+ * Given a submodule S, this function extracts its generators in the Selmer group
+ * and tests whether a prime is split or inert in the field extension K(generators).
+ * This is a key step in Grenie's algorithm for determining which submodules
+ * satisfy the required residual degree conditions.
  *
  * Parameters:
- * K <- number field we are working on.
- * M <- GModule strcture on KpS.
- * S <- Submodule of M we want to test.
- * KpS <- SelmerGroup
- * SelToK <- inverse map from second output in pSelmerGroup.
- * q <- Degree of the extension.
- * Fp <- Ring OK/p
- * m <- Map obtained from ResidueClassField
-
+ * K <- Number field we are working on
+ * M <- G-module structure on the p-Selmer group KpS
+ * S <- Submodule of M to test for goodness
+ * KpS <- p-Selmer group
+ * SelToK <- Inverse map from KpS to K (from pSelmerGroup output)
+ * q <- Prime characteristic (usually 2 or 3)
+ * Fp <- Residue field OK/p where p is a prime ideal
+ * m <- Residue class field map
+ *
  * Optional Parameters:
- * OK <- Ring of Integers of K. If not provided, it will be computed.
+ * OK <- Ring of integers of K. If not provided, it will be computed.
+ *
+ * Returns:
+ * 0 if the prime is inert (submodule fails the test)
+ * 1 if the prime is split (submodule passes the test)
 **/
 function checkSubmodule(K, M, S, KpS, SelToK, q, Fp, m : OK := {})
 
@@ -263,17 +273,31 @@ function checkSubmodule(K, M, S, KpS, SelToK, q, Fp, m : OK := {})
 end function;
 
 /**
- * Given an extension K, it computes the next step in Grenie's algorithm. 
- * If there is no next step, it returns -1 (which would mean K_S = K).
- * This works when the base field K_0 = Q only.
+ * Computes the next step in Grenie's algorithm for absolute extensions over Q.
+ * 
+ * This function implements one iteration of Grenie's algorithm, which constructs
+ * the maximal abelian extension of K unramified outside S with bounded residual
+ * degrees. It works by:
+ * 1. Computing "blessed primes" that violate the residual degree bound
+ * 2. Computing the p-Selmer group of K with respect to S
+ * 3. Finding the maximal submodule that satisfies splitting conditions at blessed primes
  * 
  * Parameters:
- * K <- Current extension.
- * S <- Set of primes of Q where we allow ramification.
- * P <- Set of primes of Q to test the residual degree conditions.
- * f <- residual degree bound (integer)
+ * K <- Current number field extension
+ * S <- Set of rational primes where ramification is allowed
+ * P <- Set of rational primes to test for residual degree conditions
+ * f <- Residual degree bound (positive integer)
+ * 
  * Optional Parameters:
- * q <- Prime such that Gal(K_{i+1}/K_i) = F_q^t for some t. Default is 2.
+ * q <- Prime characteristic for Selmer group (default: 2)
+ *      Should satisfy Gal(K_{i+1}/K_i) ≅ F_q^t for some t
+ * 
+ * Returns:
+ * - Next field in the tower if a proper extension exists
+ * - -1 if K_S = K (no further extension possible)
+ * 
+ * Note: This version works only when the base field K_0 = Q.
+ *       For relative extensions, use nextStep_rel instead.
 **/ 
 function nextStep(K, S, P, f : q := 2)
 	print "Computing ring of integers of base field...";
@@ -412,18 +436,35 @@ end function;
 
 
 /**
- * Given an extension K, it computes the next step in Grenie's algorithm. 
- * If there is no next step, it returns -1 (which would mean K_S = K).
- * This works when the base field [K_0:Q] > 1. 
+ * Computes the next step in Grenie's algorithm for relative extensions.
+ * 
+ * This is the relative version of nextStep, designed for cases where the base
+ * field K_0 has degree > 1 over Q. The algorithm works similarly to the absolute
+ * case but takes into account the relative structure K/K_0.
+ * 
+ * The function:
+ * 1. Sets up the relative field structure
+ * 2. Computes blessed primes relative to the base field K_0
+ * 3. Computes the p-Selmer group and its Galois module structure
+ * 4. Finds submodules satisfying the relative residual degree conditions
  * 
  * Parameters:
- * K0 <- Base field. 
- * K <- Current extension.
- * S <- Set of primes of Q where we allow ramification.
- * P <- Set of primes of Q to test the residual degree conditions.
- * f <- residual degree bound (integer)
+ * K0 <- Base number field (with [K_0:Q] > 1)
+ * K <- Current extension field (must contain K_0)
+ * S <- Set of rational primes where ramification is allowed
+ * P <- Set of rational primes to test for residual degree conditions
+ * f <- Residual degree bound (positive integer)
+ * 
  * Optional Parameters:
- * q <- Prime such that Gal(K_{i+1}/K_i) = F_q^t for some t. Default is 2.
+ * q <- Prime characteristic for Selmer group (default: 2)
+ *      Should satisfy Gal(K_{i+1}/K_i) ≅ F_q^t for some t
+ * 
+ * Returns:
+ * - Next field in the tower if a proper extension exists
+ * - -1 if K_S = K (no further extension possible)
+ * 
+ * Note: This function handles the relative case where K_0 ≠ Q.
+ *       For absolute extensions over Q, use nextStep instead.
 **/ 
 function nextStep_rel(K0, K, S, P, f : q := 2)
 
@@ -570,10 +611,30 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 
 end function;
 
-/*
- * This is a faster computation of IsIsomorphic when K1 and K2 are two degree 64 fields
- * Used in last layer of Grenié to compute the isomorphism between the output and the nice polynomial. 
- */
+/**
+ * Optimized isomorphism test for degree 64 number fields.
+ * 
+ * This function provides a faster computation of IsIsomorphic specifically
+ * for degree 64 fields by using the tower structure and intermediate fields.
+ * It's used in the final layer of Grenie's algorithm to verify that the
+ * computed field matches the expected nice polynomial representation.
+ * 
+ * The algorithm works by:
+ * 1. Finding intermediate subfields of degrees 8 and 16
+ * 2. Establishing the relative structure using these subfields
+ * 3. Testing isomorphism in the relative setting, which is more efficient
+ * 
+ * Parameters:
+ * K1 <- First degree 64 number field
+ * K2 <- Second degree 64 number field  
+ * K32 <- A common degree 32 subfield used in the tower construction
+ * 
+ * Returns:
+ * Boolean indicating whether K1 and K2 are isomorphic.
+ * 
+ * Note: This specialized function is much faster than the general IsIsomorphic
+ *       for degree 64 fields due to the specific tower structure utilized.
+**/
 function checkDegree64FieldIsomorphism(K1, K2, K32)
 	S := Subfields(K32, 16);
 	K16 := S[3][1];
@@ -601,116 +662,3 @@ function checkDegree64FieldIsomorphism(K1, K2, K32)
 
 	return IsIsomorphic(K1rel, K2rel);
 end function;
-
-
-/*
- *  Grenié's example as in his paper and ours.
- */
-procedure ExampleOfGrenie(~middleExtensions)
-	q := 2;
-	K := Rationals();
-	S := [2];
-	P := NFirstPrimes(20);
-	Exclude(~P, 2);
-	f := 4;
-
-	KpS, KToSel := pSelmerGroup(q, Set(S));
-	SelToK := Inverse(KToSel);
-	Qx<x> := PolynomialRing(K);
-	L:=AbsoluteField(NumberField([x^q - SelToK(KpS.i) : i in [1..Ngens(KpS)]]));
-
-
-	middleExtensions := [* K, L *];
-	while not (Type(L) eq Type(-1)) do
-		print "";
-		print "*******************************************************";
-		print "";
-		print "++++";
-		print "Current Base Field:", L;
-		print "++++";
-		t0 := Realtime(); 
-		if Degree(L) eq 64 then
-			SetProfile(true);
-		end if;
-		L := nextStep(L, S, P, f);
-		print "++++";
-		print "Current step took", Realtime(t0), "seconds.";
-		print "++++";
-		print L;
-		print "++++";
-		print "Computing Optimized Representation...";
-		if Type(L) ne Type(-1) and Degree(L) eq 64 then
-			f2 := x^64 - 16*x^62 + 104*x^60 - 304*x^58 +
-				344*x^56 + 496*x^54 + 568*x^52 - 48*x^50 + 1248*x^48 + 10336*x^46 +
-				11720*x^44 + 17536*x^42 + 14168*x^40 + 52608*x^38 + 27320*x^36 - 19520*x^34
-				- 8414*x^32 + 50224*x^30 + 243496*x^28 - 208624*x^26 - 259016*x^24 +
-				244784*x^22 + 175544*x^20 - 204656*x^18 - 4384*x^16 + 55712*x^14 - 8248*x^12
-				- 9920*x^10 + 4472*x^8 - 576*x^6 - 8*x^4 + 1;
-			K2 := NumberField(f2);
-			assert checkDegree64FieldIsomorphism(L, K2, middleExtensions[#middleExtensions]);
-			L := K2;
-		elif Type(L) ne Type(-1) then
-			L := OptimizedRepresentation2(L);
-		else
-			print "We found K_S = K_{i-1}.";
-			break;
-		end if;
-		print L;
-		print "++++";
-		Append(~middleExtensions, L);
-	end while;
-end procedure;
-
-/*
- * The 3-adic example explained in our paper.
- */
-procedure Example3Adic(~middleExtensions)
-	q := 3;
-	PolyQ<x> := PolynomialRing(Rationals());
-	K<a> := NumberField(x^2 - x + 1);
-	S := [3];
-	P := NFirstPrimes(20);
-	Exclude(~P, 3);
-	f := 3;
-
-	SK := Flat([Factorization(s*Integers(K)) : s in S]);
-	SK := [p[1] : p in SK];
-	KpS, KToSel := pSelmerGroup(q, Set(SK));
-	SelToK := Inverse(KToSel);
-	PolyK<x> := PolynomialRing(K);
-	L:=AbsoluteField(NumberField([x^q - SelToK(KpS.i) : i in [1..Ngens(KpS)]]));
-
-
-	middleExtensions := [* K, L *];
-	while not (Type(L) eq Type(-1)) do 
-		print "";
-		print "*******************************************************";
-		print "";
-		print "++++";
-		print "Current Base Field:", L;
-		print "++++";
-		t0 := Realtime(); 
-		L := nextStep_rel(K, L, S, P, f : q := 3);
-		print "++++";
-		print "Current step took", Realtime(t0), "seconds.";
-		print "++++";
-		print L;
-		print "++++";
-		if Type(L) eq Type(-1) then
-			print "We found K_S = K_{i-1}.";
-			break;
-		end if;
-		print "Computing Optimized Representation...";
-		L:=OptimizedRepresentation2(L);
-		print L;
-		Append(~middleExtensions, L);
-	end while;
-end procedure;
-
-// Gal group of last layer of Grenié's example is [64, 34] https://people.maths.bris.ac.uk/~matyd/GroupNames/61/C4%5E2sC4.html
-// Gal group of last layer of 3-adic example is [54, 5] https://people.maths.bris.ac.uk/~matyd/GroupNames/1/C3%5E2sC6.html
-
-middleExtensions := [];
-//ExampleOfGrenie(~middleExtensions);
-Example3Adic(~middleExtensions);
-
