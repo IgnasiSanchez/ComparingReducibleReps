@@ -16,6 +16,7 @@ KpS, KToSel := pSelmerGroup(q, Set(SK));
 SelToK := Inverse(KToSel);
 PolyK<x> := PolynomialRing(K);
 L:=AbsoluteField(NumberField([x^q - SelToK(KpS.i) : i in [1..Ngens(KpS)]]));
+L := OptimizedRepresentation2(L);
 
 
 middleExtensions := [* K, L *];

@@ -299,7 +299,7 @@ end function;
  * Note: This version works only when the base field K_0 = Q.
  *       For relative extensions, use nextStep_rel instead.
 **/ 
-function nextStep(K, S, P, f : q := 2)
+function nextStep(K, S, P, f : q := 2, CyclicCheck := false)
 	print "Computing ring of integers of base field...";
 	t0 := Realtime();
 	OK := Integers(K);
