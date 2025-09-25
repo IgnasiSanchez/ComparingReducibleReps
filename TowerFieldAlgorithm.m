@@ -140,6 +140,10 @@ function dimNfromDimN1Submod(M, mats, N1submod, p)
 	return subsOfM;
 end function;
 
+function dimNfromDimN1Submods(M, mats, N1submods, p)
+	return SetToSequence(Set(Flat([dimNfromDimN1Submod(M, mats, N1submod, p) : N1submod in N1submods])));
+end function;
+
 
 /**
  * Computes all submodules of dimension N by iteratively finding maximal submodules.
@@ -367,16 +371,13 @@ function nextStep(K, S, P, f : q := 2, CyclicCheck := false)
 	for i in [1..Ngens(KpS)] do
 		print "Dimension", i, "of", Ngens(KpS);
 		if i eq 1 then
-			S := computeDim1Submodules(M, mats, q);
+			dim_i_modules := computeDim1Submodules(M, mats, q);
 		else
-			S := dimNSubmods(M, i);
+			dim_i_modules := dimNfromDimN1Submods(M, mats, [N : N in goodSubmodules | Dimension(N) eq i-1], q);
 		end if;
 		if IsEmpty(goodSubmodules) then
-			dim_i_modules := [l : l in S | Dimension(l) eq i];
 			print "There are", #dim_i_modules, "modules of dimension", i;
 		else
-			dim_i_modules := [l : l in S | Dimension(l) eq i and
-			&and[mm in goodSubmodules : mm in MaximalSubmodules(l)]];
 			print "There are", #dim_i_modules, "modules of dimension", i, "s.t. their all their maximal submodules do not violate the residual degree condition.";
 		end if;
 	
@@ -544,16 +545,13 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 	for i in [1..Ngens(KpS)] do
 		print "Dimension", i, "of", Ngens(KpS);
 		if i eq 1 then
-			S := computeDim1Submodules(M, mats, q);
+			dim_i_modules := computeDim1Submodules(M, mats, q);
 		else
-			S := dimNSubmods(M, i);
+			dim_i_modules := dimNfromDimN1Submods(M, mats, [N : N in goodSubmodules | Dimension(N) eq i-1], q);
 		end if;
 		if IsEmpty(goodSubmodules) then
-			dim_i_modules := [l : l in S | Dimension(l) eq i];
 			print "There are", #dim_i_modules, "modules of dimension", i;
 		else
-			dim_i_modules := [l : l in S | Dimension(l) eq i and 
-        		&and[mm in goodSubmodules : mm in MaximalSubmodules(l)]];
 			print "There are", #dim_i_modules, "modules of dimension", i, "s.t. their all their maximal submodules do not violate the residual degree condition.";
 		end if;
 
