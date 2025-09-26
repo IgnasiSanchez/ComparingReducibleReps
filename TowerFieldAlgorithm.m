@@ -2,10 +2,7 @@
  * Authors: Nuno Freitas, Ignasi Sánchez-Rodríguez
  */
 
-SetClassGroupBounds("GRH");
 load "GaloisAutomorphismGroup.m";
-AttachSpec("spec"); // Necessary: https://github.com/edgarcosta/MagmaPolred
-SetNthreads(4);
 
 /**
  * Computes the first n prime numbers.
