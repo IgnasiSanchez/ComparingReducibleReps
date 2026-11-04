@@ -2,10 +2,7 @@
  * Authors: Nuno Freitas, Ignasi Sánchez-Rodríguez
  */
 
-SetClassGroupBounds("GRH");
 load "GaloisAutomorphismGroup.m";
-AttachSpec("spec"); // Necessary: https://github.com/edgarcosta/MagmaPolred
-SetNthreads(4);
 
 /**
  * Computes the first n prime numbers.
@@ -437,6 +434,47 @@ end function;
 
 
 /**
+ * Select saturated relative prime ideals without losing their base primes.
+ *
+ * K0 is the fixed base, Krel is the current field as an extension of K0,
+ * P lists rational primes (each represents ALL base primes above it),
+ * and f is the relative residue-degree bound.
+ *
+ * Requires Krel/K0 Galois, as checked by nextStep_rel. Tested base primes
+ * must be unramified. Returns a list of pairs <p0, pp>, where pp lies over
+ * p0 and has relative residue degree f. One pp per p0 suffices because
+ * the candidate radical subspaces are invariant over K0.
+ */
+function relativeBlessedPrimes(K0, Krel, P, f)
+    OK0 := Integers(K0);
+    OKrel := Integers(Krel);
+    d_rel := Degree(Krel);
+    result := [* *];
+    for p in P do
+        for baseFactor in Factorization(p*OK0) do
+            p0 := baseFactor[1];
+            factors := Factorization(
+                ideal<OKrel | [OKrel!a : a in Generators(p0)]>
+            );
+            error if not &and[t[2] eq 1 : t in factors],
+                "nextStep_rel: a tested base prime is ramified in K/K0.";
+            assert d_rel mod #factors eq 0;
+            residueDegree := d_rel div #factors;
+            error if residueDegree gt f,
+                "nextStep_rel: the current field already exceeds the residue-degree bound.";
+            if residueDegree eq f then
+                pp := factors[1][1];
+                // Certify that this is a prime above the same p0.
+                assert &and[Valuation(OKrel!a, pp) gt 0 :
+                    a in Generators(p0)];
+                Append(~result, <p0, pp>);
+            end if;
+        end for;
+    end for;
+    return result;
+end function;
+
+/**
  * Computes the next step in Grenie's algorithm for relative extensions.
  * 
  * This is the relative version of nextStep, designed for cases where the base
@@ -451,10 +489,10 @@ end function;
  * 
  * Parameters:
  * K0 <- Base number field (with [K_0:Q] > 1)
- * K <- Current extension field (must contain K_0)
+ * K <- Current tower field K_i (Galois q-extension of the embedded K_0)
  * S <- Set of rational primes where ramification is allowed
- * P <- Set of rational primes to test for residual degree conditions
- * f <- Residual degree bound (positive integer)
+ * P <- Rational test primes outside S; every base prime above each is tested
+ * f <- Relative residue-degree bound q^m, with m a nonnegative integer
  * 
  * Optional Parameters:
  * q <- Prime characteristic for Selmer group (default: 2)
@@ -464,36 +502,55 @@ end function;
  * - Next field in the tower if a proper extension exists
  * - -1 if K_S = K (no further extension possible)
  * 
+ * The relative Galois and unramified-prime hypotheses are checked before use.
  * Note: This function handles the relative case where K_0 ≠ Q.
  *       For absolute extensions over Q, use nextStep instead.
 **/ 
 function nextStep_rel(K0, K, S, P, f : q := 2)
+    error if not IsPrime(q), "nextStep_rel: q must be prime.";
+    error if Type(f) ne RngIntElt, "nextStep_rel: f must be an integer.";
+    error if f lt 1, "nextStep_rel: f must be positive.";
+    if f gt 1 then
+        error if PrimeDivisors(f) ne [q],
+            "nextStep_rel: f must be a power of q.";
+    end if;
+    error if q notin S, "nextStep_rel: S must contain q.";
+    error if not IsEmpty(Set(S) meet Set(P)),
+        "nextStep_rel: tested primes must lie outside S.";
 
 	print "Computing ring of integers of base field and checking subfields...";
 	t0 := Realtime();
-	_ := IsSubfield(K0, K);
+	hasBase, baseEmbedding := IsSubfield(K0, K);
+    error if not hasBase, "nextStep_rel: K0 must embed in K.";
 	Krel := RelativeField(K0, K);
+    // Use the same embedded K0 for prime and automorphism computations.
+    baseGenerators := [baseEmbedding(k) : k in Generators(K0)];
+    assert &and[(Krel!baseEmbedding(k)) eq (Krel!k) :
+        k in Generators(K0)];
 	OK := Integers(K);
-	OKrel := Integers(Krel);
-	OK0 := Integers(K0);
 	d_rel := Degree(Krel);
-	d_abs := Degree(K);
 	print "Done in", Realtime(t0), "seconds.";
 	print "++++";
 
-	print "Computing Blessed primes:";
-	blessedPrimes := [];
-	for p in P do
-		pK0 := Factorization(p*OK0)[1][1];
-		pK := Factorization(ideal<OKrel | [OKrel!g : g in Generators(pK0)]>);
+    // Certify the relative Galois hypothesis before the no-primes branch.
+    print "Computing Galois group of K...";
+    t0 := Realtime();
+    G, m := GaloisAutomorphismGroup(K);
+    G := sub<G | [g : g in G |
+        &and[m(g)(k) eq k : k in baseGenerators]]>;
+    error if #G ne d_rel, "nextStep_rel: K/K0 must be Galois.";
+    if #G gt 1 then
+        error if not &and[ell eq q : ell in PrimeDivisors(#G)],
+            "nextStep_rel: Gal(K/K0) must be a q-group.";
+    end if;
+    print "Done in", Realtime(t0), "seconds.";
+    print "++++";
 
-		// check residual degree
-		if d_rel/#pK eq f then
-			Append(~blessedPrimes, p);
-		end if;
-	end for;
-	print "The list of Blessed primes for this step is", blessedPrimes;
-	print "++++";
+    print "Computing Blessed primes:";
+    blessedPrimes := relativeBlessedPrimes(K0, Krel, P, f);
+    print "The blessed base primes for this step are",
+        [* entry[1] : entry in blessedPrimes *];
+    print "++++";
 
 
 	SK := Flat([Factorization(s*OK) : s in S]);
@@ -510,27 +567,18 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 	print "++++";
 
 	// this means that there is no prime that violates the residual degree condition
-	// In this case, the extension is the whole ray class field.
+	// In this case, the extension is the full elementary Kummer extension.
 	if #blessedPrimes eq 0 then
-		print "Since there are no blessed primes, the extension is the whole ray class field.";
+		print "Since there are no blessed primes, the extension is the full elementary Kummer extension.";
 		return AbsoluteField(NumberField([x^q - SelToK(KpS.i) : i in [1..Ngens(KpS)]]));
 	end if;
 
-	print "Computing Galois group of K...";
-	t0 := Realtime();
-	//G,_,m := AutomorphismGroup(Krel);
-	G,m := GaloisAutomorphismGroup(K);
-	// we want the relative group:
-	G:=sub<G | [g : g in G | &and[m(g)(k) eq k : k in Generators(K0)]]>;
-	print "Done in", Realtime(t0), "seconds.";
-	print "++++";
-	
-
 	blessedRFs := [* *];
-	for p in blessedPrimes do
-		pp := Factorization(p*OKrel)[1][1];
+	for entry in blessedPrimes do
+        p0 := entry[1];
+        pp := entry[2];
 		Fp, Fpm := ResidueClassField(pp);
-		Append(~blessedRFs, <p, Fp, Fpm>);
+		Append(~blessedRFs, <p0, Fp, Fpm>);
 	end for;
 
 	print "Computing G-Module structure of Sel_p(K,S)...";
@@ -568,7 +616,7 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 				Fpm := rf[3];
 				isSplit := checkSubmodule(K, M, l, KpS, SelToK, q, Fp, Fpm: OK := OK);
 				if isSplit eq 0 then
-					print "    - The prime", p, "is inert.";
+					print "    - A prime above", p, "does not split completely in the candidate layer.";
 					flag := 1;
 					break;
 				end if; 

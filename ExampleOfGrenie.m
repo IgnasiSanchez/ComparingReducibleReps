@@ -1,3 +1,6 @@
+SetClassGroupBounds("GRH");
+AttachSpec("spec"); // Necessary: https://github.com/edgarcosta/MagmaPolred
+SetNthreads(4);
 load "TowerFieldAlgorithm.m";
 
 // Algorithm parameters for Grenié
