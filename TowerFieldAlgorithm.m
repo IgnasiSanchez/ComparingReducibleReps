@@ -441,9 +441,9 @@ end function;
  * and f is the relative residue-degree bound.
  *
  * Requires Krel/K0 Galois, as checked by nextStep_rel. Tested base primes
- * must be unramified. Returns a list of pairs <p0, pp>, where pp lies over
- * p0 and has relative residue degree f. One pp per p0 suffices because
- * the candidate radical subspaces are invariant over K0.
+ * must be unramified. Returns triples <p, p0, pp>, with p0 above the rational
+ * prime p and pp above p0 of relative residue degree f. One pp per p0
+ * suffices because the candidate radical subspaces are invariant over K0.
  */
 function relativeBlessedPrimes(K0, Krel, P, f)
     OK0 := Integers(K0);
@@ -467,7 +467,7 @@ function relativeBlessedPrimes(K0, Krel, P, f)
                 // Certify that this is a prime above the same p0.
                 assert &and[Valuation(OKrel!a, pp) gt 0 :
                     a in Generators(p0)];
-                Append(~result, <p0, pp>);
+                Append(~result, <p, p0, pp>);
             end if;
         end for;
     end for;
@@ -548,8 +548,8 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 
     print "Computing Blessed primes:";
     blessedPrimes := relativeBlessedPrimes(K0, Krel, P, f);
-    print "The blessed base primes for this step are",
-        [* entry[1] : entry in blessedPrimes *];
+    print "Blessed primes for this step (rational prime, base prime):",
+        [* <entry[1], entry[2]> : entry in blessedPrimes *];
     print "++++";
 
 
@@ -575,10 +575,9 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 
 	blessedRFs := [* *];
 	for entry in blessedPrimes do
-        p0 := entry[1];
-        pp := entry[2];
+		p, p0, pp := Explode(entry);
 		Fp, Fpm := ResidueClassField(pp);
-		Append(~blessedRFs, <p0, Fp, Fpm>);
+		Append(~blessedRFs, <p, p0, Fp, Fpm>);
 	end for;
 
 	print "Computing G-Module structure of Sel_p(K,S)...";
@@ -610,13 +609,11 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 			flag := 0;
 			
 			for rf in blessedRFs do
-				p := rf[1];
-				print p;
-				Fp := rf[2];
-				Fpm := rf[3];
+				p, p0, Fp, Fpm := Explode(rf);
+				printf "    Testing base prime %o over %o.\n", p0, p;
 				isSplit := checkSubmodule(K, M, l, KpS, SelToK, q, Fp, Fpm: OK := OK);
 				if isSplit eq 0 then
-					print "    - A prime above", p, "does not split completely in the candidate layer.";
+					printf "    - The candidate layer does not split completely above %o (over %o).\n", p0, p;
 					flag := 1;
 					break;
 				end if; 
