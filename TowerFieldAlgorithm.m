@@ -221,56 +221,56 @@ function getModuleGeneratorsInSelmer(M, N, KpS)
 end function;
 
 /**
- * Checks the "goodness" of a submodule by testing residual degree conditions.
- * 
- * Given a submodule S, this function extracts its generators in the Selmer group
- * and tests whether a prime is split or inert in the field extension K(generators).
- * This is a key step in Grenie's algorithm for determining which submodules
- * satisfy the required residual degree conditions.
+ * Test whether pp splits completely in the candidate Kummer extension of K.
  *
- * Parameters:
- * K <- Number field we are working on
- * M <- G-module structure on the p-Selmer group KpS
- * S <- Submodule of M to test for goodness
- * KpS <- p-Selmer group
- * SelToK <- Inverse map from KpS to K (from pSelmerGroup output)
- * q <- Prime characteristic (usually 2 or 3)
- * Fp <- Residue field OK/p where p is a prime ideal
- * m <- Residue class field map
+ * classes  Ordered Selmer classes generating the candidate submodule.
+ * lifts    List of field representatives for the first #lifts entries of
+ *          classes, initially empty for each candidate.
+ * SelToK   Map choosing an integral representative in K for a Selmer class.
+ * q        Prime exponent of the Kummer extension.
+ * OK       Ring of integers of K, used to reduce the integral lift.
+ * L        Presentation of K in which pp is defined (K or Krel).
+ * pp       Selected prime ideal of L above a test prime outside S.
+ * Fp       Residue field at pp.
+ * m        Reduction map at pp with values in Fp.
+ * pi       Initially the rational prime below pp. On first use, keep it as a
+ *          uniformizer if its valuation is 1, or choose a uniformizer at pp.
  *
- * Optional Parameters:
- * OK <- Ring of integers of K. If not provided, it will be computed.
+ * Compute SelToK(classes[k]) only when the test reaches generator k. This
+ * saves the remaining lifts on early rejection and reuses computed lifts at
+ * later primes. If a lift reduces to zero, reduce its local unit a/pi^v,
+ * where v is its valuation at pp and q divides v.
  *
- * Returns:
- * 0 if the prime is inert (submodule fails the test)
- * 1 if the prime is split (submodule passes the test)
+ * Return isSplit (1 for complete splitting, 0 otherwise), the updated lifts
+ * for this candidate, and the updated pi for this prime.
 **/
-function checkSubmodule(K, M, S, KpS, SelToK, q, Fp, m : OK := {})
-
-	if Type(OK) eq Type({}) then
-		OK := Integers(K);
-	end if;
-
+function checkSubmodule(classes, lifts, SelToK, q, OK, L, pp, Fp, m, pi)
 	Kx<x> := PolynomialRing(Fp);
-	try
-		O := getModuleGeneratorsInSelmer(M, S, KpS);
-	catch e
-		print M;
-		print S;
-		print KpS;
-		print e;
-	end try;
-
-	for e in O do
-		IrrE := x^q - m(OK!SelToK(e));
-		r := Roots(IrrE, Fp);
-		if #r eq 0 then
-			return 0;
+	for k in [1..#classes] do
+		if k gt #lifts then
+			Append(~lifts, SelToK(classes[k]));
+		end if;
+		a := lifts[k];
+		residue := m(OK!a);
+		if residue eq 0 then
+			a := L!a;
+			v := Valuation(a, pp);
+			error if v mod q ne 0, "Selmer valuation is not divisible by q.";
+			// An integer marks the untested rational prime. Keep it if its valuation at pp is 1.
+			if Type(pi) eq RngIntElt then
+				pi := L!pi;
+				if Valuation(pi, pp) ne 1 then
+					pi := L!UniformizingElement(pp);
+				end if;
+			end if;
+			residue := m(a / pi^v);
+			assert residue ne 0;
+		end if;
+		if IsEmpty(Roots(x^q - residue, Fp)) then
+			return 0, lifts, pi;
 		end if;
 	end for;
-
-	return 1;
-
+	return 1, lifts, pi;
 end function;
 
 /**
@@ -357,6 +357,7 @@ function nextStep(K, S, P, f : q := 2, CyclicCheck := false)
 		Append(~blessedRFs, <p, Fp, Fpm>);
 	end for;
 
+	uniformizers := [* p : p in blessedPrimesInQ *];
 	print "Computing G-Module structure of Sel_p(K,S)...";
 	t0 := Realtime();
 	M, mats := computeGModuleStructure(G, m, q, KpS, KToSel);
@@ -384,12 +385,14 @@ function nextStep(K, S, P, f : q := 2, CyclicCheck := false)
 			print "Checking submodule", jj, "of", #dim_i_modules;
 			flag := 0;
 
-			for rf in blessedRFs do
-				p := rf[1];
+			classes := getModuleGeneratorsInSelmer(M, l, KpS);
+			lifts := [* *];
+			for j in [1..#blessedRFs] do
+				p, Fp, Fpm := Explode(blessedRFs[j]);
 				print p;
-				Fp := rf[2];
-				Fpm := rf[3];
-				isSplit := checkSubmodule(K, M, l, KpS, SelToK, q, Fp, Fpm: OK := OK);
+				isSplit, lifts, pi := checkSubmodule(classes, lifts, SelToK, q,
+					OK, K, p, Fp, Fpm, uniformizers[j]);
+				uniformizers[j] := pi;
 				if isSplit eq 0 then
 					print "    - The prime", p, "is inert.";
 					flag := 1;
@@ -577,9 +580,10 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 	for entry in blessedPrimes do
 		p, p0, pp := Explode(entry);
 		Fp, Fpm := ResidueClassField(pp);
-		Append(~blessedRFs, <p, p0, Fp, Fpm>);
+		Append(~blessedRFs, <p, p0, Fp, Fpm, pp>);
 	end for;
 
+	uniformizers := [* entry[1] : entry in blessedPrimes *];
 	print "Computing G-Module structure of Sel_p(K,S)...";
 	t0 := Realtime();
 	M, mats := computeGModuleStructure(G, m, q, KpS, KToSel);
@@ -608,10 +612,14 @@ function nextStep_rel(K0, K, S, P, f : q := 2)
 			print "Checking submodule", jj, "of", #dim_i_modules;
 			flag := 0;
 			
-			for rf in blessedRFs do
-				p, p0, Fp, Fpm := Explode(rf);
+			classes := getModuleGeneratorsInSelmer(M, l, KpS);
+			lifts := [* *];
+			for j in [1..#blessedRFs] do
+				p, p0, Fp, Fpm, pp := Explode(blessedRFs[j]);
 				printf "    Testing base prime %o over %o.\n", p0, p;
-				isSplit := checkSubmodule(K, M, l, KpS, SelToK, q, Fp, Fpm: OK := OK);
+				isSplit, lifts, pi := checkSubmodule(classes, lifts, SelToK, q,
+					OK, Krel, pp, Fp, Fpm, uniformizers[j]);
+				uniformizers[j] := pi;
 				if isSplit eq 0 then
 					printf "    - The candidate layer does not split completely above %o (over %o).\n", p0, p;
 					flag := 1;
