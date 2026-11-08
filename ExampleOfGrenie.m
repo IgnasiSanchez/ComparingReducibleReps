@@ -2,6 +2,7 @@ SetClassGroupBounds("GRH");
 AttachSpec("spec"); // Necessary: https://github.com/edgarcosta/MagmaPolred
 SetNthreads(4);
 load "TowerFieldAlgorithm.m";
+load "FrobeniusPrimeSets.m";
 
 // Algorithm parameters for Grenié
 q := 2;
@@ -59,3 +60,7 @@ while not (Type(L) eq Type(-1)) do
     print "++++";
     Append(~middleExtensions, L);
 end while;
+
+T, Tprime := FrobeniusPrimeSets(middleExtensions[#middleExtensions], S, 3);
+print "T =", T;
+print "T' =", Tprime;
