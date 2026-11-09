@@ -12,15 +12,10 @@ P := NFirstPrimes(20);
 Exclude(~P, 2);
 f := 4;
 
-// First layer of the tower
-KpS, KToSel := pSelmerGroup(q, Set(S));
-SelToK := Inverse(KToSel);
-Qx<x> := PolynomialRing(K);
-L := AbsoluteField(NumberField([x^q - SelToK(KpS.i) : i in [1..Ngens(KpS)]]));
-L := OptimizedRepresentation2(L);
-
-middleExtensions := [* K, L *];
-while not (Type(L) eq Type(-1)) do
+// The first iteration constructs K1 from the base field.
+L := K;
+middleExtensions := [* K *];
+while true do
     print "";
     print "*******************************************************";
     print "";
@@ -28,10 +23,7 @@ while not (Type(L) eq Type(-1)) do
     print "Current Base Field:", L;
     print "++++";
     t0 := Realtime(); 
-    if Degree(L) eq 64 then
-        SetProfile(true);
-    end if;
-    L := nextStep(L, S, P, f);
+    L := nextStep(L, S, P, f : q := q);
     print "++++";
     print "Current step took", Realtime(t0), "seconds.";
     print "++++";
@@ -43,6 +35,8 @@ while not (Type(L) eq Type(-1)) do
     end if;
     print "Computing Optimized Representation...";
     if Degree(L) eq 64 then
+        Qx<x> := PolynomialRing(K);
+        // Grenié's Polynomial
         f2 := x^64 - 16*x^62 + 104*x^60 - 304*x^58 +
             344*x^56 + 496*x^54 + 568*x^52 - 48*x^50 + 1248*x^48 + 10336*x^46 +
             11720*x^44 + 17536*x^42 + 14168*x^40 + 52608*x^38 + 27320*x^36 - 19520*x^34

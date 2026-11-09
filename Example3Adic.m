@@ -12,18 +12,10 @@ P := NFirstPrimes(20);
 Exclude(~P, 3);
 f := 3;
 
-// First layer of the tower
-SK := Flat([Factorization(s*Integers(K)) : s in S]);
-SK := [p[1] : p in SK];
-KpS, KToSel := pSelmerGroup(q, Set(SK));
-SelToK := Inverse(KToSel);
-PolyK<x> := PolynomialRing(K);
-L:=AbsoluteField(NumberField([x^q - SelToK(KpS.i) : i in [1..Ngens(KpS)]]));
-L := OptimizedRepresentation2(L);
-
-
-middleExtensions := [* K, L *];
-while not (Type(L) eq Type(-1)) do 
+// The first iteration constructs K1 from the base field.
+L := K;
+middleExtensions := [* K *];
+while true do
     print "";
     print "*******************************************************";
     print "";
@@ -31,7 +23,7 @@ while not (Type(L) eq Type(-1)) do
     print "Current Base Field:", L;
     print "++++";
     t0 := Realtime(); 
-    L := nextStep_rel(K, L, S, P, f : q := 3);
+    L := nextStep_rel(K, L, S, P, f : q := q);
     print "++++";
     print "Current step took", Realtime(t0), "seconds.";
     print "++++";
